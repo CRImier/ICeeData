@@ -1,0 +1,10 @@
+First two LEDs don't light up
+	Make sure device went to sleep mode
+	Try not using "firmware dump" mode when preparing a flash drive
+	Try preparing and inserting another flash drive
+	If all fails, email help@iceedata.org
+Three LEDs don't light up
+	Try not using "firmware dump" mode when preparing a flash drive
+I get no reports
+	Are you sure there should be? You shouldn't let device transfer the reports after talking with ICD. Unplug your 3G modem or ADSL line and collect reports after next communication
+
