@@ -2,13 +2,15 @@ menu_name = "ICeeData USBtool"
 i = None
 o = None
 
+import os
 from subprocess import call
 from time import sleep
 from pyrtitions import get_partitions
-
+from math import ceil
 from ui import Menu, Printer, IntegerInDecrementInput, MenuExitException, Refresher, DialogBox, format_for_screen as ffs, Listbox, CharArrowKeysInput
 
 import libmerlin_ex1150 as libmerlin
+
 
 def pylprint(phrase):
     Printer(ffs(phrase, o.cols, break_words=False), i, o, 3, skippable=True)
@@ -16,7 +18,7 @@ def pylprint(phrase):
 def usb_read():
     unfiltered_partitions = get_partitions()
     #Raspberry Pi-specific filtering
-    partitions = [partition for partition in unfiltered_partitions if not partition["name"].startswith("/dev/mmcblk0")]
+    partitions = [partition for partition in unfiltered_partitions if not partition["path"].startswith("/dev/mmcblk0")]
     possible_parts = []
     for partition in partitions:
         if not partition["mounted"]:
@@ -27,50 +29,58 @@ def usb_read():
     if not possible_parts:
         pylprint("No drives with data found!"); return
     elif len(possible_parts) > 1:
-        pylprint("More than one drive found")
+        pylprint("Select source drive")
         lb_contents = [["{} s:{}".format(part["path"], part["size"]), part] for part in possible_parts]
-        current_partition = Listbox(lb_contents, i, o, "Partition selection listbox")
+        current_partition = Listbox(lb_contents, i, o, "Partition selection listbox").activate()
         if not current_partition:
             pylprint("Aborting!"); return
     else:
         current_partition = possible_parts[0]
+        pylprint("A drive with data found!")
     #Now working on the partition found
     current_path = current_partition["mountpoint"]
     partitions.remove(current_partition)
-    if not partitions:
-        pylprint("No partitions to transfer data to found!")
     mounted_partitions = [partition for partition in partitions if partition["mounted"]]
-    Printer(["Choose", "destination"], i, o, 1) 
-    lb_contents = []
-    for part in mounted_partitions:
-        if "label" in part:
-            part_pname = part["label"]
-        else:
-            part_pname = part["uuid"]
-        
-        lb_contents.append()
-    lb_contents = [part["pretty_name"], part["path"] for part in mounted_partitions]
-    lb = Listbox(lb_contents, i, o, "")
-    selected_partition = lb.activate()
+    if not mounted_partitions: pylprint("No partitions to transfer data to found!"); return
+    Printer(ffs("Choose transfer destination", o.cols, break_words=False), i, o, 1) 
+    lb_contents = [[pretty_part_name(part), part] for part in mounted_partitions]
+    selected_partition = Listbox(lb_contents, i, o, "").activate()
     if not selected_partition:
         Printer("Aborted", i, o, 1, skippable=True); return
+    selected_path = selected_partition["mountpoint"]
     if libmerlin.has_merlin_files(current_path):
-        pylprint("Report files found")
-os.copy(os.path.join(current_partition["mountpoint"], "Merlin@Home/"), os.path.join(selected_partition["mountpoint"], "Merlin@Home/"))
-        Printer("Copied files", i, o, 1, skippable=True)
-    else:
-        pylprint("Report files not found!")
+        pylprint("Transferring report files")
+        #Feature not implemented until requested
+        #answer = DialogBox([["Copy", True], ["Transfer", False]], i, o, "Transfer or copy?").activate()
+        #if answer is None: Printer("Aborted", i, o, 1, skippable=True); return
+        report_path = libmerlin.transfer_reports(current_path, selected_path)
+        #if answer == True:
+        #    libmerlin.copy_reports(current_path, selected_path)
+        print(report_path)
+        report_folder = os.path.basename(report_path)
+        print(report_folder)
+        pylprint("Folder: {}".format(report_folder))
     if libmerlin.has_fs_dump(current_path):
         pylprint("Filesystem image found! Agree to send it to ICeeData?")
-        dbox = DialogBox("yn", i, o, "Send image?")
-        answer = dbox.activate()
+        answer = DialogBox("yn", i, o, "Send image?").activate()
         if answer == True:
-            fs_image_path = os.path.join(partition["mountpoint"], "full_dump.tgz"
-            send_fs_image(fs_image_path, iceedata_server)
-            os.remove(fs_image_path, "full_dump.tgz"))
+            libmerlin.send_fs_dump(current_path)
         else:
             Printer("=(", i, o, 0.5, skippable=True)
-                
+
+def pretty_part_name(part):
+    if "label" in part:
+        part_id = part["label"]
+    else:
+        part_id = part["uuid"]
+    if '.' in part["size"]:
+        psize, psmult = part['size'][:-1], part['size'][-1:]
+        psize = str(int(round(float(psize))))+psmult
+    else:
+        psize = part["size"]
+    #size max len is 4 chars, two for ': '
+    id_limit = o.cols-6
+    return "{}: {}".format(part_id[:id_limit], psize)
 
 def problems_menu():
     result = []
@@ -101,7 +111,7 @@ def terms_conditions():
 def callback():
     main_menu_contents = [
     ["Read from USB", usb_read],
-    ["Prepare USB", usb_prepare_menu],
+    #["Prepare USB", usb_prepare_menu],
     ["Problems?", problems_menu],
     ["Privacy policy", privacy_policy],
     ["Terms&conditions", terms_conditions]]
