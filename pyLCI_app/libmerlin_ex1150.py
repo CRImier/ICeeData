@@ -34,6 +34,7 @@ def share_reports(report_path):
     print("Sharing reports with ICeeData")
 
 def send_fs_dump(current_path):
+    """Unfinished"""
     fs_dump_path = os.path.join(current_path, fs_dump_name)
     print("Sending {} to ICeeData server".format(fs_dump_name))
 
