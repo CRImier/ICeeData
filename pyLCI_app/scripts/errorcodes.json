@@ -1,0 +1,7 @@
+{
+  "1":["Internal error in invoking script", True],
+  "2":["Partition creation failed", True],
+  "3":["Partition formatting failed", True],
+  "4":["Partition mount failed", True],
+  "5":["Storage partition formatting failed", False]
+}
