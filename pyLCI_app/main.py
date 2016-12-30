@@ -30,7 +30,7 @@ def usb_read():
         pylprint("No drives with data found!"); return
     elif len(possible_parts) > 1:
         pylprint("Select source drive")
-        lb_contents = [["{} s:{}".format(part["path"], part["size"]), part] for part in possible_parts]
+        lb_contents = [[pretty_part_name(part), part] for part in possible_parts]
         current_partition = Listbox(lb_contents, i, o, "Partition selection listbox").activate()
         if not current_partition:
             pylprint("Aborting!"); return
@@ -81,15 +81,13 @@ def usb_prepare():
     """Makes a SJM drive from pretty much any USB drive."""
     block_devices = get_block_devices()
     #Raspberry Pi-specific filtering
-    block_devices = filter(lambda d: not d["path"].startswith("/dev/mmcblk0"), block_devices)
+    block_devices = {k:v for k, v in block_devices.items() if not k.["name"].startswith("/dev/mmcblk0")}
     #Filtering for SJM partitions - we don't need to prepare partitions we've already prepared
-    if not config["prepare_prepared_drives"]:
-        block_devices = filter(lambda d: not libmerlin.partition_is_sjm(d["partitions"].get(0, None)), partitions)
-    if not partitions:
+    if not block_devices
         pylprint("No suitable drives found!"); return
     else:
-        pylprint("Select a drive you want to prepare") 
-        lb_contents = [["{} s:{}".format(part["path"], part["size"]), part] for part in possible_parts]
+        pylprint("Select a drive to prepare") 
+        lb_contents = [["{}: {}".format(drive, pretty_part_size(drive["size"])), drive] for drive in block_devices]
         current_partition = Listbox(lb_contents, i, o, "Partition selection listbox").activate()
         if not current_partition:
             pylprint("Aborting!"); return
@@ -124,14 +122,16 @@ def pretty_part_name(part, len_limit=o.cols):
         part_id = part["label"]
     else:
         part_id = part["uuid"]
-    if '.' in part["size"]:
-        psize, psmult = part['size'][:-1], part['size'][-1:]
-        psize = str(int(round(float(psize))))+psmult #Rounds the number to its closest integer and makes a size string
-    else:
-        psize = part["size"]
+    size = pretty_part_size(part["size"])
     #size max len is 4 chars, two for ': '
     id_limit = len_limit-6
     return "{}: {}".format(part_id[:id_limit], psize)
+
+def pretty_part_size(size_str):
+    if '.' in size_str: 
+        psize, psmult = size_str[:-1], size_str[-1:]
+        size_str = str(int(round(float(psize))))+psmult #Rounds the number to its closest integer and makes a size string
+    return size_str
 
 def problems_menu():
     result = []
